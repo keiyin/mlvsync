@@ -15,9 +15,9 @@ typedef struct {
 	optArgs* opt;
 } scanInfo;
 
-int serveur_side();
+int serveur_side(MemInfo* PeerList);
 
-int client_side(optArgs* optargs);
+int client_side(optArgs* , MemInfo* PeerList);
 
 void* scan_directory(void* _si);
 
@@ -52,11 +52,11 @@ int main(int argc, char** argv){
 			return EXIT_FAILURE;
 		case 0:
 			/* Server side */
-			serveur_side();
+			while(serveur_side(PeerList));
 			break;
 		default :
 			/* Client side */
-			client_side(opt);
+			client_side(opt, PeerList);
 			break;		
 	}		
 	
@@ -67,17 +67,44 @@ int main(int argc, char** argv){
 	return 0;
 }
 
-int serveur_side(){
+int serveur_side(MemInfo* PeerList){
+	static int index = 0;
+	int sock;
+	struct sockaddr_in sin;
 	waitBro wtbro;
 	
 	waitBroadcastMsg((void*)&wtbro);
 	printf("Message %s recu de %s !\n", wtbro.msg, wtbro.addr);
 	
+	/* We create a socket that connect to the program that send us data */
+	if(-1 == (sock = socket(AF_INET, SOCK_STREAM, 0))){
+		perror("SOCKET SERVER");
+		return 0;
+	}
 	
-	return 0;
+	sin.sin_port = atoi(wtbro.msg);
+	sin.sin_family = AF_INET;
+	
+	inet_pton(AF_INET, wtbro.addr, &(sin.sin_addr));
+	
+	if(-1 == bind(sock, (struct sockaddr*)&sin, sizeof(struct sockaddr))){
+		perror("SOCKET SERVEUR 2");
+		return 0;
+	}
+	
+	/* We add the new program we discovered to the PeerList */	
+	
+	sem_wait(PeerList->sem_ptr[NON_PLEIN]);
+	((PeerElem*)PeerList->sh_mem)[index].port = atoi(wtbro.msg);
+	((PeerElem*)PeerList->sh_mem)[index].addr = malloc(sizeof(char) * strlen(wtbro.addr));
+	memcpy(((PeerElem*)PeerList->sh_mem)[index].addr, wtbro.addr, strlen(wtbro.addr));
+	((PeerElem*)PeerList->sh_mem)[index].fd = sock;
+	index++;
+	
+	return 1;
 }
 
-int client_side(optArgs* optargs){
+int client_side(optArgs* optargs, MemInfo* PeerList){
 	
 	pthread_t scanThread;
 	int port = PORT_BROAD;
