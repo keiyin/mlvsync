@@ -99,6 +99,7 @@ int serveur_side(MemInfo* PeerList){
 	((PeerElem*)PeerList->sh_mem)[index].addr = malloc(sizeof(char) * strlen(wtbro.addr));
 	memcpy(((PeerElem*)PeerList->sh_mem)[index].addr, wtbro.addr, strlen(wtbro.addr));
 	((PeerElem*)PeerList->sh_mem)[index].fd = sock;
+	sem_post(PeerList->sem_ptr[NON_VIDE]);
 	index++;
 	
 	return 1;
