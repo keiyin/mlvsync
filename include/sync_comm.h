@@ -29,6 +29,8 @@ typedef struct {
 	int size_elem;
 } MemInfo;
 
+void* create_shared_memory(char* name_mem, size_t size);
+
 int init_memory(MemInfo** mi, size_t size_elem, int nb_elem);
 
 void free_memory(MemInfo* mi);

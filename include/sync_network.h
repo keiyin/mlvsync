@@ -15,6 +15,9 @@
 #define PORT_LISTEN 7654
 #define NB_PEER 4
 
+#define INSTANCE_NB_NAME "/nb_inst"
+#define INSTANCE_MAX 5
+
 typedef struct {
 	int port;
 	char* msg;
@@ -30,6 +33,13 @@ typedef struct {
 /* We use a struct for thread param that is void* */
 void* waitBroadcastMsg(void* waitbro);
 
-void* sendBroadcastMsg(void* port);
+int sendBroadcastMsg(void* port);
+
+/* Return the number of the actual instance, or -1 in case of error
+ * Error can be :	mem_int is not good
+ * 					There is too many instance on the computer
+ * WARNING : Can only be used when mutex is locked !
+ */
+int getInstanceNumber(int* mem_inst);
 
 #endif

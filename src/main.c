@@ -15,7 +15,7 @@ typedef struct {
 	optArgs* opt;
 } scanInfo;
 
-int serveur_side(MemInfo* PeerList);
+int serveur_side(MemInfo* PeerList, int inst_number);
 
 int client_side(optArgs* , MemInfo* PeerList);
 
@@ -25,9 +25,15 @@ int get_file_changed(FileInfo** fi, MemInfo* mi);
 
 int main(int argc, char** argv){
 	
+	int i;
 	int forki;
 	optArgs *opt;
 	MemInfo* PeerList = NULL;
+	
+	/* CODE MULTI INST */
+	pthread_mutex_t inst_mutex;
+	int* mem_inst = NULL;
+	/*******************/
 	
 	create_log();	
 	
@@ -42,6 +48,15 @@ int main(int argc, char** argv){
 		exit(EXIT_FAILURE);
 	}
 	
+	/* CODE MULTI INST */
+	if(NULL == (mem_inst = create_shared_memory(INSTANCE_NB_NAME,( 1 + INSTANCE_MAX) * sizeof *mem_inst))){
+		add_log(ERROR, "Initialization failed for instance compt");
+		exit(EXIT_FAILURE);
+	}
+	for(i=1; i<=INSTANCE_MAX; i++)
+		mem_inst[i] = -1;
+	/*******************/
+	
 	forki = fork();
 	switch(forki){
 		case -1 :
@@ -50,15 +65,30 @@ int main(int argc, char** argv){
 			freeArgs(opt);
 			close_log();
 			return EXIT_FAILURE;
-		case 0:
+		case 0:;
+			int inst_number = -1;
+			/* On incremente le nombre d'instance */
+			pthread_mutex_lock(&inst_mutex);
+			*mem_inst = (*mem_inst) + 1;
+			if(-1 == (inst_number = getInstanceNumber(mem_inst))){
+				add_log(ERROR, "Can't get instance number. Maybe there is too many ?");
+				pthread_mutex_unlock(&inst_mutex);
+				exit(EXIT_FAILURE);
+			}
+			pthread_mutex_unlock(&inst_mutex);
+			
 			/* Server side */
-			while(serveur_side(PeerList));
+			while(serveur_side(PeerList, inst_number));
 			break;
 		default :
 			/* Client side */
 			client_side(opt, PeerList);
 			break;		
 	}		
+	
+	pthread_mutex_lock(&inst_mutex);
+	*mem_inst = (*mem_inst) - 1;
+	pthread_mutex_unlock(&inst_mutex);
 	
 	free_memory(PeerList);
 	freeArgs(opt);
@@ -67,11 +97,13 @@ int main(int argc, char** argv){
 	return 0;
 }
 
-int serveur_side(MemInfo* PeerList){
+int serveur_side(MemInfo* PeerList, int inst_number){
 	static int index = 0;
 	int sock;
 	struct sockaddr_in sin;
 	waitBro wtbro;
+	
+	wtbro.port = PORT_BROAD + inst_number - 1;
 	
 	waitBroadcastMsg((void*)&wtbro);
 	printf("Message %s recu de %s !\n", wtbro.msg, wtbro.addr);
@@ -102,6 +134,9 @@ int serveur_side(MemInfo* PeerList){
 	sem_post(PeerList->sem_ptr[NON_VIDE]);
 	index++;
 	
+	/* We reply the port on wich we want to talk ! */
+	
+	
 	return 1;
 }
 
@@ -113,7 +148,11 @@ int client_side(optArgs* optargs, MemInfo* PeerList){
 	MemInfo* filelist = NULL;
 	FileInfo* changed;
 			
-	sendBroadcastMsg((void*)&port);
+	if(sendBroadcastMsg((void*)&port)){
+		/* An error have occured */
+		add_log(ERROR, "Can't retrieved network data. Usualy, it's caused because you're not connected on any interface.");
+		return 1;
+	}
 	
 	
 	

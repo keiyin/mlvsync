@@ -86,6 +86,8 @@ void* waitBroadcastMsg(void* waitbro){
 		exit(EXIT_FAILURE);
 	}
 	
+	printf("%d\n", sin.sin_port);
+	
 	if(-1 == (bind(sock, (struct sockaddr*)&sin, sizeof(struct sockaddr))))
 		perror("BIND");
 		
@@ -103,13 +105,17 @@ void* waitBroadcastMsg(void* waitbro){
 	return NULL;	
 }
 
-void* sendBroadcastMsg(void* port){
+int sendBroadcastMsg(void* port){
 	struct sockaddr_in *sin = NULL;
 	char buff[INET_ADDRSTRLEN];
 	char* msg = NULL;
 	char addr_ip[INET_ADDRSTRLEN];
 	
 	getIfSockStruct(&sin, addr_ip);
+	
+	if(NULL == sin)
+		return 1;
+	
 	sin->sin_port = htons(*(int*)port);
 	
 	printf("Sending data to %s on port %d\n", inet_ntop(AF_INET, &(sin->sin_addr), buff, INET_ADDRSTRLEN),*(int*)port);
@@ -120,7 +126,21 @@ void* sendBroadcastMsg(void* port){
 	free(msg);
 	
 	
-	return NULL;
+	return 0;
+}
+
+int getInstanceNumber(int* mem_inst){
+	int i;
+	
+	if(NULL == mem_inst)
+		return -1;
+		
+	for(i=1; i<=INSTANCE_MAX; i++){
+		if(-1 == mem_inst[i])
+			return i;
+	}
+	
+	return -1;
 }
 
 

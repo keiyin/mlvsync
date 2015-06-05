@@ -20,7 +20,7 @@ static void generateNameForInstance(char** name){
 }
 
 /* return a created shared memory, with a size of size, named name_mem */
-static void* create_shared_memory(char* name_mem, size_t size){
+void* create_shared_memory(char* name_mem, size_t size){
 	int fd_shared, i;
 	char vide = '\0';
 	void* ptr = NULL;
